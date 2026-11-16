@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login.jsx";
+import Register from "./pages/Register.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import UserDashboard from "./pages/UserDashboard.jsx";
 import "./App.css";
@@ -14,29 +15,25 @@ function getUser() {
 
 function isLoggedIn() {
   try {
-    return Boolean(
-      localStorage.getItem("token") ||
-        localStorage.getItem("access_token") ||
-        localStorage.getItem("user")
-    );
+    return Boolean(localStorage.getItem("token") && localStorage.getItem("user"));
   } catch {
     return false;
   }
 }
 
+// admin -> /dashboard, selain itu (masyarakat) -> /masyarakat
 function homeFor(role) {
-  return role === "admin" ? "/dashboard" : "/user";
+  return role === "admin" ? "/dashboard" : "/masyarakat";
 }
 
-// role: "admin" atau "user" (halaman ini hanya untuk role tersebut)
-function ProtectedRoute({ children, role }) {
+function ProtectedRoute({ children, allow }) {
   if (!isLoggedIn()) return <Navigate to="/login" replace />;
 
-  const userRole = getUser()?.role || "user";
-  if (role && userRole !== role) {
-    return <Navigate to={homeFor(userRole)} replace />;
-  }
-  return children;
+  const role = getUser()?.role;
+  const isAdmin = role === "admin";
+  const allowed = allow === "admin" ? isAdmin : !isAdmin;
+
+  return allowed ? children : <Navigate to={homeFor(role)} replace />;
 }
 
 function PublicRoute({ children }) {
@@ -50,19 +47,20 @@ function App() {
       <Routes>
         <Route path="/" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+        <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
 
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute role="admin">
+            <ProtectedRoute allow="admin">
               <Dashboard />
             </ProtectedRoute>
           }
         />
         <Route
-          path="/user"
+          path="/masyarakat"
           element={
-            <ProtectedRoute role="user">
+            <ProtectedRoute allow="masyarakat">
               <UserDashboard />
             </ProtectedRoute>
           }
