@@ -1,91 +1,54 @@
-import { useState } from "react";
-import { loginUser } from "../services/api";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Login from "./pages/Login.jsx";
+import Dashboard from "./pages/Dashboard.jsx";
+import "./App.css";
 
-export default function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+// Hanya bisa diakses kalau sudah login (ada token)
+function ProtectedRoute({ children }) {
+  const token = localStorage.getItem("token");
+  return token ? children : <Navigate to="/login" replace />;
+}
 
-  async function handleLogin(e) {
-    e.preventDefault();
+// Kalau sudah login, tidak perlu lihat halaman login lagi
+function PublicRoute({ children }) {
+  const token = localStorage.getItem("token");
+  return token ? <Navigate to="/dashboard" replace /> : children;
+}
 
-    setError("");
-    setSuccess("");
-    setLoading(true);
-
-    try {
-      await loginUser(email, password);
-
-      setSuccess("Login berhasil! Anda berhasil masuk ke CivicCare.");
-      setPassword("");
-    } catch (err) {
-      setError(err.message || "Login gagal. Silakan coba lagi.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
+function App() {
   return (
-    <div className="login-page">
-      <div className="login-card">
-        <div className="login-brand">
-          <div className="login-logo">CC</div>
-          <h1>CivicCare</h1>
-          <p>Platform Layanan Sosial dan Kemanusiaan</p>
-        </div>
+    <BrowserRouter>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
 
-        <h2>Selamat Datang!</h2>
-
-        <p className="login-subtitle">
-          Silakan masuk ke akun CivicCare Anda.
-        </p>
-
-        {error && (
-          <div className="login-error">
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="login-success">
-            {success}
-          </div>
-        )}
-
-        <form onSubmit={handleLogin}>
-          <label htmlFor="email">Email</label>
-
-          <input
-            id="email"
-            type="email"
-            placeholder="Masukkan email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-
-          <label htmlFor="password">Password</label>
-
-          <input
-            id="password"
-            type="password"
-            placeholder="Masukkan password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-
-          <button type="submit" disabled={loading}>
-            {loading ? "Memproses..." : "Masuk"}
-          </button>
-        </form>
-
-        <p className="login-footer">
-          CivicCare — Bersama Membantu Sesama.
-        </p>
-      </div>
-    </div>
+        {/* Halaman selain yang terdaftar diarahkan kembali ke login */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
+
+export default App;
