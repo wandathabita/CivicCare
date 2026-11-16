@@ -3,16 +3,27 @@ import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import "./App.css";
 
-// Hanya bisa diakses kalau sudah login (ada token)
+// Satu tempat untuk menentukan "sudah login atau belum"
+function isLoggedIn() {
+  try {
+    return Boolean(
+      localStorage.getItem("token") ||
+        localStorage.getItem("access_token") ||
+        localStorage.getItem("user")
+    );
+  } catch {
+    return false;
+  }
+}
+
+// Hanya bisa diakses kalau sudah login
 function ProtectedRoute({ children }) {
-  const token = localStorage.getItem("token");
-  return token ? children : <Navigate to="/login" replace />;
+  return isLoggedIn() ? children : <Navigate to="/login" replace />;
 }
 
 // Kalau sudah login, tidak perlu lihat halaman login lagi
 function PublicRoute({ children }) {
-  const token = localStorage.getItem("token");
-  return token ? <Navigate to="/dashboard" replace /> : children;
+  return isLoggedIn() ? <Navigate to="/dashboard" replace /> : children;
 }
 
 function App() {
