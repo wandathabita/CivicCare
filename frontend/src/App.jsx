@@ -1,9 +1,17 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
+import UserDashboard from "./pages/UserDashboard.jsx";
 import "./App.css";
 
-// Satu tempat untuk menentukan "sudah login atau belum"
+function getUser() {
+  try {
+    return JSON.parse(localStorage.getItem("user"));
+  } catch {
+    return null;
+  }
+}
+
 function isLoggedIn() {
   try {
     return Boolean(
@@ -16,46 +24,50 @@ function isLoggedIn() {
   }
 }
 
-// Hanya bisa diakses kalau sudah login
-function ProtectedRoute({ children }) {
-  return isLoggedIn() ? children : <Navigate to="/login" replace />;
+function homeFor(role) {
+  return role === "admin" ? "/dashboard" : "/user";
 }
 
-// Kalau sudah login, tidak perlu lihat halaman login lagi
+// role: "admin" atau "user" (halaman ini hanya untuk role tersebut)
+function ProtectedRoute({ children, role }) {
+  if (!isLoggedIn()) return <Navigate to="/login" replace />;
+
+  const userRole = getUser()?.role || "user";
+  if (role && userRole !== role) {
+    return <Navigate to={homeFor(userRole)} replace />;
+  }
+  return children;
+}
+
 function PublicRoute({ children }) {
-  return isLoggedIn() ? <Navigate to="/dashboard" replace /> : children;
+  if (!isLoggedIn()) return children;
+  return <Navigate to={homeFor(getUser()?.role)} replace />;
 }
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route
-          path="/"
-          element={
-            <PublicRoute>
-              <Login />
-            </PublicRoute>
-          }
-        />
-        <Route
-          path="/login"
-          element={
-            <PublicRoute>
-              <Login />
-            </PublicRoute>
-          }
-        />
+        <Route path="/" element={<PublicRoute><Login /></PublicRoute>} />
+        <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute role="admin">
               <Dashboard />
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/user"
+          element={
+            <ProtectedRoute role="user">
+              <UserDashboard />
+            </ProtectedRoute>
+          }
+        />
 
-        {/* Halaman selain yang terdaftar diarahkan kembali ke login */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
