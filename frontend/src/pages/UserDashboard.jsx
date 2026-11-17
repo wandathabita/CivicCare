@@ -1,14 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { createReport, getMyReports, logoutUser } from "../services/api";
 import "./UserDashboard.css";
 
 const CATEGORIES = [
-  { name: "Lampu jalan", icon: "💡" },
-  { name: "Sampah", icon: "🗑️" },
-  { name: "Jalan rusak", icon: "🛣️" },
-  { name: "Banjir", icon: "🌊" },
-  { name: "Bantuan sosial", icon: "🤝" },
-  { name: "Lainnya", icon: "📌" },
+  { name: "Lampu jalan", icon: "💡", tone: "t-amber", desc: "Lampu padam atau rusak" },
+  { name: "Sampah", icon: "🗑️", tone: "t-green", desc: "Sampah menumpuk" },
+  { name: "Jalan rusak", icon: "🛣️", tone: "t-slate", desc: "Berlubang atau retak" },
+  { name: "Banjir", icon: "🌊", tone: "t-sky", desc: "Genangan, saluran tersumbat" },
+  { name: "Bantuan sosial", icon: "🤝", tone: "t-rose", desc: "Ajukan bantuan warga" },
+  { name: "Lainnya", icon: "📌", tone: "t-violet", desc: "Masalah lingkungan lain" },
 ];
 
 const AREAS = ["Sukajadi", "Cicendo", "Coblong", "Andir", "Bandung Wetan"];
@@ -21,30 +22,11 @@ const STATUS_CLASS = {
   Selesai: "b-green",
 };
 
-// ===== Penyimpanan sementara (ganti dengan API nanti) =====
 function getUser() {
   try {
     return JSON.parse(localStorage.getItem("user"));
   } catch {
     return null;
-  }
-}
-function storageKey(user) {
-  return `cc_reports_${user?.id || user?.email || "guest"}`;
-}
-function loadReports(user) {
-  try {
-    return JSON.parse(localStorage.getItem(storageKey(user))) || [];
-  } catch {
-    return [];
-  }
-}
-function saveReports(user, list) {
-  try {
-    localStorage.setItem(storageKey(user), JSON.stringify(list));
-    return true;
-  } catch {
-    return false;
   }
 }
 
@@ -56,175 +38,237 @@ function timeAgo(iso) {
   return `${Math.floor(diff / 1440)} hari lalu`;
 }
 
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 11) return "Selamat pagi";
+  if (h < 15) return "Selamat siang";
+  if (h < 18) return "Selamat sore";
+  return "Selamat malam";
+}
+
+function Icon({ name }) {
+  const p = {
+    width: 20, height: 20, viewBox: "0 0 24 24", fill: "none",
+    stroke: "currentColor", strokeWidth: 1.9, strokeLinecap: "round", strokeLinejoin: "round",
+  };
+  if (name === "home") return (<svg {...p}><path d="M3 11l9-8 9 8" /><path d="M5 10v10h14V10" /></svg>);
+  if (name === "new") return (<svg {...p}><circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" /></svg>);
+  if (name === "history") return (<svg {...p}><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 8h6M9 12h6M9 16h4" /></svg>);
+  return (<svg {...p}><circle cx="12" cy="8" r="4" /><path d="M4 21c1-4 4-6 8-6s7 2 8 6" /></svg>);
+}
+
+const NAV = [
+  { key: "home", label: "Beranda", icon: "home" },
+  { key: "new", label: "Lapor", icon: "new" },
+  { key: "history", label: "Riwayat", icon: "history" },
+  { key: "profile", label: "Profil", icon: "user" },
+];
+
 export default function UserDashboard() {
   const navigate = useNavigate();
   const user = getUser();
   const [view, setView] = useState("home");
-  const [reports, setReports] = useState(() => loadReports(user));
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
+  const [preset, setPreset] = useState("");
   const [toast, setToast] = useState("");
+
+  useEffect(() => {
+    getMyReports()
+      .then(setReports)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   const stats = useMemo(
     () => ({
       total: reports.length,
-      proses: reports.filter((r) => r.status === "Diproses" || r.status === "Diverifikasi").length,
+      proses: reports.filter((r) => r.status === "Diverifikasi" || r.status === "Diproses").length,
       selesai: reports.filter((r) => r.status === "Selesai").length,
     }),
     [reports]
   );
 
-  function handleLogout() {
-    localStorage.removeItem("token");
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("user");
+  async function handleLogout() {
+    await logoutUser();
     navigate("/login", { replace: true });
   }
 
-  function addReport(data) {
-    const next = [
-      {
-        id: `CC-${Math.floor(1000 + Math.random() * 9000)}`,
-        status: "Menunggu",
-        createdAt: new Date().toISOString(),
-        ...data,
-      },
-      ...reports,
-    ];
-    if (!saveReports(user, next)) {
-      return "Penyimpanan penuh. Coba tanpa foto atau gunakan foto yang lebih kecil.";
+  async function addReport(data) {
+    try {
+      const created = await createReport(data);
+      setReports((prev) => [created, ...prev]);
+      setToast("Laporan berhasil dikirim!");
+      setTimeout(() => setToast(""), 3000);
+      setPreset("");
+      setView("history");
+      return "";
+    } catch (err) {
+      return err.message || "Gagal mengirim laporan.";
     }
-    setReports(next);
-    setToast("Laporan berhasil dikirim!");
-    setTimeout(() => setToast(""), 3000);
-    setView("history");
-    return "";
+  }
+
+  function go(key) {
+    if (key !== "new") setPreset("");
+    setView(key);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   const name = user?.name || "Warga";
   const initials = name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 
-  const nav = [
-    { key: "home", label: "Beranda", icon: "🏠" },
-    { key: "new", label: "Lapor", icon: "✍️" },
-    { key: "history", label: "Riwayat", icon: "📋" },
-    { key: "profile", label: "Profil", icon: "👤" },
-  ];
-
   return (
     <div className="ud">
       <header className="ud-top">
-        <div className="ud-brand">
-          <span className="ud-logo">CC</span>
-          <b>CivicCare</b>
+        <div className="ud-top-in">
+          <button className="ud-brand" onClick={() => go("home")}>
+            <span className="ud-logo">CC</span>
+            <b>CivicCare</b>
+          </button>
+
+          <nav className="ud-nav">
+            {NAV.map((n) => (
+              <button key={n.key} className={view === n.key ? "on" : ""} onClick={() => go(n.key)}>
+                <Icon name={n.icon} /> {n.label}
+              </button>
+            ))}
+          </nav>
+
+          <button className="ud-avatar" onClick={() => go("profile")} title={name}>
+            {initials}
+          </button>
         </div>
-        <nav className="ud-nav">
-          {nav.map((n) => (
-            <button
-              key={n.key}
-              className={view === n.key ? "active" : ""}
-              onClick={() => setView(n.key)}
-            >
-              <span>{n.icon}</span> {n.label}
-            </button>
-          ))}
-        </nav>
-        <button className="ud-avatar" onClick={() => setView("profile")} title={name}>
-          {initials}
-        </button>
       </header>
 
       <main className="ud-main">
         {view === "home" && (
-          <Home name={name} stats={stats} reports={reports} setView={setView} onOpen={setSelected} />
+          <Home
+            name={name}
+            stats={stats}
+            reports={reports}
+            loading={loading}
+            go={go}
+            onOpen={setSelected}
+            onPick={(c) => { setPreset(c); setView("new"); window.scrollTo({ top: 0 }); }}
+          />
         )}
-        {view === "new" && <NewReport onSubmit={addReport} onCancel={() => setView("home")} />}
-        {view === "history" && <History reports={reports} onOpen={setSelected} setView={setView} />}
+        {view === "new" && <NewReport preset={preset} onSubmit={addReport} onCancel={() => go("home")} />}
+        {view === "history" && <History reports={reports} loading={loading} onOpen={setSelected} go={go} />}
         {view === "profile" && <Profile user={user} stats={stats} onLogout={handleLogout} />}
       </main>
 
-      {/* Navigasi bawah untuk HP */}
       <nav className="ud-bottom">
-        {nav.map((n) => (
-          <button
-            key={n.key}
-            className={view === n.key ? "active" : ""}
-            onClick={() => setView(n.key)}
-          >
-            <span>{n.icon}</span>
-            {n.label}
+        {NAV.map((n) => (
+          <button key={n.key} className={view === n.key ? "on" : ""} onClick={() => go(n.key)}>
+            <Icon name={n.icon} />
+            <span>{n.label}</span>
           </button>
         ))}
       </nav>
 
       {selected && <Detail report={selected} onClose={() => setSelected(null)} />}
-      {toast && <div className="ud-toast">{toast}</div>}
+      {toast && <div className="ud-toast">✓ {toast}</div>}
     </div>
   );
 }
 
-// ================= BERANDA =================
-function Home({ name, stats, reports, setView, onOpen }) {
+/* ================= BERANDA ================= */
+function Home({ name, stats, reports, loading, go, onOpen, onPick }) {
+  const active = reports.find((r) => r.status !== "Selesai");
+
   return (
     <>
       <section className="hero">
-        <div>
-          <p>Selamat datang kembali 👋</p>
+        <i className="orb o1" />
+        <i className="orb o2" />
+        <div className="hero-in">
+          <span className="hero-pill">{greeting()} 👋</span>
           <h1>Halo, {name}!</h1>
-          <span>Ada masalah di lingkunganmu? Laporkan, kami bantu teruskan ke dinas terkait.</span>
-          <button className="btn-white" onClick={() => setView("new")}>
-            ✍️ Buat laporan baru
-          </button>
+          <p>Ada masalah di lingkunganmu? Laporkan, kami bantu teruskan ke dinas terkait.</p>
+          <div className="hero-actions">
+            <button className="btn-white" onClick={() => go("new")}>＋ Buat laporan baru</button>
+            <button className="btn-line" onClick={() => go("history")}>Lihat riwayat</button>
+          </div>
         </div>
       </section>
 
-      <section className="stat3">
-        <div className="card stat"><b>{stats.total}</b><span>Total laporan</span></div>
-        <div className="card stat"><b>{stats.proses}</b><span>Sedang ditangani</span></div>
-        <div className="card stat"><b>{stats.selesai}</b><span>Selesai</span></div>
+      <section className="stats">
+        <div className="stat">
+          <span className="stat-ico s1"><Icon name="history" /></span>
+          <div><b>{stats.total}</b><small>Total laporan</small></div>
+        </div>
+        <div className="stat">
+          <span className="stat-ico s2"><Icon name="new" /></span>
+          <div><b>{stats.proses}</b><small>Sedang ditangani</small></div>
+        </div>
+        <div className="stat">
+          <span className="stat-ico s3"><Icon name="home" /></span>
+          <div><b>{stats.selesai}</b><small>Selesai</small></div>
+        </div>
       </section>
 
-      <h2 className="sec-title">Mau lapor apa?</h2>
-      <section className="cat-grid">
+      <div className="sec-head">
+        <h2>Mau lapor apa?</h2>
+        <p>Pilih kategori, formulir akan terisi otomatis.</p>
+      </div>
+      <section className="cats">
         {CATEGORIES.map((c) => (
-          <button key={c.name} className="card cat" onClick={() => setView("new")}>
-            <span className="cat-ico">{c.icon}</span>
-            {c.name}
+          <button key={c.name} className="cat" onClick={() => onPick(c.name)}>
+            <span className={`cat-ico ${c.tone}`}>{c.icon}</span>
+            <b>{c.name}</b>
+            <small>{c.desc}</small>
           </button>
         ))}
       </section>
 
-      <div className="two-col">
+      <div className="two">
         <section>
-          <div className="row-between">
-            <h2 className="sec-title">Laporan terakhir</h2>
-            {reports.length > 0 && (
-              <button className="link" onClick={() => setView("history")}>Lihat semua →</button>
-            )}
+          <div className="sec-row">
+            <h2>Laporan terakhir</h2>
+            {reports.length > 0 && <button className="link" onClick={() => go("history")}>Lihat semua →</button>}
           </div>
-          {reports.length === 0 ? (
-            <div className="card empty">
-              <div>📭</div>
+
+          {loading ? (
+            <div className="panel empty">Memuat…</div>
+          ) : reports.length === 0 ? (
+            <div className="panel empty">
+              <div className="empty-ico">📭</div>
               <p>Belum ada laporan. Mulai dengan membuat laporan pertamamu.</p>
-              <button className="btn" onClick={() => setView("new")}>Buat laporan</button>
+              <button className="btn" onClick={() => go("new")}>Buat laporan</button>
             </div>
           ) : (
             <div className="list">
-              {reports.slice(0, 3).map((r) => (
-                <ReportRow key={r.id} r={r} onOpen={onOpen} />
-              ))}
+              {reports.slice(0, 4).map((r) => <ReportRow key={r.dbId} r={r} onOpen={onOpen} />)}
             </div>
           )}
         </section>
 
-        <aside className="card tips">
-          <h3>Tips laporan yang cepat ditangani</h3>
-          <ul>
-            <li>Tulis lokasi sejelas mungkin (nama jalan, patokan).</li>
-            <li>Jelaskan masalah singkat dan jelas.</li>
-            <li>Sertakan foto bila ada.</li>
-          </ul>
-          <div className="emergency">
-            🚨 Keadaan darurat? Hubungi <b>112</b>
+        <aside className="side">
+          {active && (
+            <div className="panel track" onClick={() => onOpen(active)}>
+              <small>Laporan aktif</small>
+              <b>{active.title}</b>
+              <div className="mini-steps">
+                {STEPS.map((s, i) => (
+                  <i key={s} className={i <= STEP_INDEX[active.status] ? "on" : ""} />
+                ))}
+              </div>
+              <span className={`badge ${STATUS_CLASS[active.status]}`}>{active.status}</span>
+            </div>
+          )}
+
+          <div className="panel tips">
+            <h3>Tips laporan cepat ditangani</h3>
+            <ul>
+              <li>Tulis lokasi sejelas mungkin (jalan, patokan).</li>
+              <li>Jelaskan masalah singkat dan jelas.</li>
+              <li>Sertakan foto bila ada.</li>
+            </ul>
+          </div>
+
+          <div className="panel emergency">
+            🚨 <span>Keadaan darurat? Hubungi <b>112</b></span>
           </div>
         </aside>
       </div>
@@ -235,8 +279,8 @@ function Home({ name, stats, reports, setView, onOpen }) {
 function ReportRow({ r, onOpen }) {
   const cat = CATEGORIES.find((c) => c.name === r.category);
   return (
-    <button className="card row" onClick={() => onOpen(r)}>
-      <span className="cat-ico sm">{cat?.icon || "📌"}</span>
+    <button className="row" onClick={() => onOpen(r)}>
+      <span className={`cat-ico sm ${cat?.tone || "t-violet"}`}>{cat?.icon || "📌"}</span>
       <div className="row-info">
         <b>{r.title}</b>
         <small>{r.id} • {r.area} • {timeAgo(r.createdAt)}</small>
@@ -246,15 +290,16 @@ function ReportRow({ r, onOpen }) {
   );
 }
 
-// ================= BUAT LAPORAN =================
-function NewReport({ onSubmit, onCancel }) {
-  const [category, setCategory] = useState("");
+/* ================= BUAT LAPORAN ================= */
+function NewReport({ preset, onSubmit, onCancel }) {
+  const [category, setCategory] = useState(preset || "");
   const [title, setTitle] = useState("");
   const [area, setArea] = useState("");
   const [address, setAddress] = useState("");
   const [description, setDescription] = useState("");
   const [photo, setPhoto] = useState("");
   const [error, setError] = useState("");
+  const [sending, setSending] = useState(false);
 
   function handlePhoto(e) {
     const file = e.target.files?.[0];
@@ -269,40 +314,41 @@ function NewReport({ onSubmit, onCancel }) {
     reader.readAsDataURL(file);
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     if (!category) return setError("Pilih kategori laporan dulu.");
     if (!area) return setError("Pilih wilayah.");
-    const msg = onSubmit({ category, title, area, address, description, photo });
+    setError("");
+    setSending(true);
+    const msg = await onSubmit({ category, title, area, address, description, photo });
+    setSending(false);
     if (msg) setError(msg);
   }
 
   return (
-    <form className="card form" onSubmit={handleSubmit}>
+    <form className="panel form" onSubmit={handleSubmit}>
       <h2>Buat laporan baru</h2>
-      <p className="muted">Isi data berikut dengan jelas supaya laporanmu cepat ditindaklanjuti.</p>
+      <p className="muted">Isi dengan jelas supaya laporanmu cepat ditindaklanjuti.</p>
 
-      <label>Kategori</label>
-      <div className="chips">
+      <label>1. Pilih kategori</label>
+      <div className="pick">
         {CATEGORIES.map((c) => (
-          <button
-            type="button"
-            key={c.name}
-            className={category === c.name ? "chip on" : "chip"}
-            onClick={() => setCategory(c.name)}
-          >
-            {c.icon} {c.name}
+          <button type="button" key={c.name}
+            className={category === c.name ? "pick-item on" : "pick-item"}
+            onClick={() => setCategory(c.name)}>
+            <span className={`cat-ico sm ${c.tone}`}>{c.icon}</span>
+            {c.name}
           </button>
         ))}
       </div>
 
-      <label htmlFor="t">Judul laporan</label>
+      <label htmlFor="t">2. Judul laporan</label>
       <input id="t" value={title} onChange={(e) => setTitle(e.target.value)}
         placeholder="Contoh: Lampu jalan padam" maxLength={80} required />
 
       <div className="grid2">
         <div>
-          <label htmlFor="a">Wilayah</label>
+          <label htmlFor="a">3. Wilayah</label>
           <select id="a" value={area} onChange={(e) => setArea(e.target.value)} required>
             <option value="">Pilih wilayah</option>
             {AREAS.map((a) => <option key={a}>{a}</option>)}
@@ -315,14 +361,13 @@ function NewReport({ onSubmit, onCancel }) {
         </div>
       </div>
 
-      <label htmlFor="d">Deskripsi</label>
-      <textarea id="d" rows={4} value={description}
-        onChange={(e) => setDescription(e.target.value)}
+      <label htmlFor="d">4. Deskripsi</label>
+      <textarea id="d" rows={4} value={description} onChange={(e) => setDescription(e.target.value)}
         placeholder="Ceritakan masalahnya..." required />
 
-      <label>Foto (opsional)</label>
+      <label>5. Foto (opsional)</label>
       <label className="upload">
-        {photo ? <img src={photo} alt="Pratinjau" /> : <span>📷 Klik untuk pilih foto</span>}
+        {photo ? <img src={photo} alt="Pratinjau" /> : <span>📷 Klik untuk memilih foto (maks 800 KB)</span>}
         <input type="file" accept="image/*" onChange={handlePhoto} hidden />
       </label>
 
@@ -330,14 +375,16 @@ function NewReport({ onSubmit, onCancel }) {
 
       <div className="actions">
         <button type="button" className="btn-ghost" onClick={onCancel}>Batal</button>
-        <button type="submit" className="btn">Kirim laporan</button>
+        <button type="submit" className="btn" disabled={sending}>
+          {sending ? "Mengirim..." : "Kirim laporan"}
+        </button>
       </div>
     </form>
   );
 }
 
-// ================= RIWAYAT =================
-function History({ reports, onOpen, setView }) {
+/* ================= RIWAYAT ================= */
+function History({ reports, loading, onOpen, go }) {
   const [filter, setFilter] = useState("Semua");
   const [q, setQ] = useState("");
   const filters = ["Semua", "Menunggu", "Diverifikasi", "Diproses", "Selesai"];
@@ -350,12 +397,14 @@ function History({ reports, onOpen, setView }) {
 
   return (
     <>
-      <div className="row-between">
-        <h2 className="sec-title">Riwayat laporan</h2>
-        <button className="btn" onClick={() => setView("new")}>+ Laporan baru</button>
+      <div className="sec-row">
+        <h2>Riwayat laporan</h2>
+        <button className="btn" onClick={() => go("new")}>＋ Laporan baru</button>
       </div>
+
       <input className="search" placeholder="🔍 Cari judul, ID, atau wilayah"
         value={q} onChange={(e) => setQ(e.target.value)} />
+
       <div className="chips">
         {filters.map((f) => (
           <button key={f} className={filter === f ? "chip on" : "chip"} onClick={() => setFilter(f)}>
@@ -363,24 +412,27 @@ function History({ reports, onOpen, setView }) {
           </button>
         ))}
       </div>
-      {shown.length === 0 ? (
-        <div className="card empty"><div>🔎</div><p>Tidak ada laporan yang cocok.</p></div>
+
+      {loading ? (
+        <div className="panel empty">Memuat…</div>
+      ) : shown.length === 0 ? (
+        <div className="panel empty"><div className="empty-ico">🔎</div><p>Tidak ada laporan yang cocok.</p></div>
       ) : (
         <div className="list">
-          {shown.map((r) => <ReportRow key={r.id} r={r} onOpen={onOpen} />)}
+          {shown.map((r) => <ReportRow key={r.dbId} r={r} onOpen={onOpen} />)}
         </div>
       )}
     </>
   );
 }
 
-// ================= DETAIL =================
+/* ================= DETAIL ================= */
 function Detail({ report, onClose }) {
   const step = STEP_INDEX[report.status] ?? 0;
   return (
     <div className="overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="row-between">
+        <div className="sec-row">
           <small className="muted">{report.id}</small>
           <button className="x" onClick={onClose} aria-label="Tutup">✕</button>
         </div>
@@ -396,6 +448,13 @@ function Detail({ report, onClose }) {
           ))}
         </div>
 
+        {report.note && (
+          <div className="admin-note">
+            <small>Catatan petugas</small>
+            <p>{report.note}</p>
+          </div>
+        )}
+
         <dl>
           <dt>Kategori</dt><dd>{report.category}</dd>
           <dt>Wilayah</dt><dd>{report.area}</dd>
@@ -409,20 +468,23 @@ function Detail({ report, onClose }) {
   );
 }
 
-// ================= PROFIL =================
+/* ================= PROFIL ================= */
 function Profile({ user, stats, onLogout }) {
   const name = user?.name || "Warga";
   return (
-    <div className="card profile">
+    <div className="panel profile">
+      <div className="p-cover" />
       <div className="p-avatar">{name[0]?.toUpperCase()}</div>
       <h2>{name}</h2>
       <p className="muted">{user?.email}</p>
-      <span className="badge b-blue">Masyarakat</span>
-      <div className="stat3 inner">
-        <div className="stat"><b>{stats.total}</b><span>Laporan</span></div>
-        <div className="stat"><b>{stats.proses}</b><span>Ditangani</span></div>
-        <div className="stat"><b>{stats.selesai}</b><span>Selesai</span></div>
+      <span className="badge b-green">Masyarakat</span>
+
+      <div className="p-stats">
+        <div><b>{stats.total}</b><small>Laporan</small></div>
+        <div><b>{stats.proses}</b><small>Ditangani</small></div>
+        <div><b>{stats.selesai}</b><small>Selesai</small></div>
       </div>
+
       <button className="btn-danger" onClick={onLogout}>Keluar</button>
     </div>
   );
