@@ -8,14 +8,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Report extends Model
 {
     protected $fillable = [
-        'code', 'user_id', 'title', 'category', 'area', 'address',
-        'description', 'photo', 'status', 'admin_note', 'resolved_at',
+        'user_id',
+        'area',
+        'status',
+        'resolved_at',
     ];
 
     protected $casts = [
         'resolved_at' => 'datetime',
     ];
 
+    // Relasi laporan dengan pengguna
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

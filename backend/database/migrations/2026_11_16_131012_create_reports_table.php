@@ -15,6 +15,12 @@ return new class extends Migration
         Schema::create('reports', function (Blueprint $table) {
             $table->id();
 
+            // Relasi dengan tabel users
+            $table->foreignId('user_id')
+                  ->constrained('users')
+                  ->cascadeOnDelete();
+
+            // Data laporan
             $table->string('area');
             $table->string('status')->default('pending');
             $table->timestamp('resolved_at')->nullable();
