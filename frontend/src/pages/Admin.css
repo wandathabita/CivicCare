@@ -78,7 +78,6 @@
 .a-panel { background: #fff; border: 1px solid var(--line); border-radius: 22px; box-shadow: 0 4px 14px rgba(15,60,55,.06); }
 .a-pad { padding: 24px; }
 .a-two { display: grid; grid-template-columns: 1.7fr 1fr; gap: 20px; margin-top: 22px; align-items: start; }
-.a-two .a-sec-row + * { }
 .a-chart { width: 100%; height: auto; display: block; }
 .a-legend { display: flex; justify-content: center; gap: 24px; margin-top: 8px; font-size: 12.5px; color: var(--mute); }
 .a-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
