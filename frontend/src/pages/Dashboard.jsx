@@ -1,107 +1,28 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "./Dashboard.css";
+import AdminLayout, { Icon, STATUS_CLASS } from "./AdminLayout.jsx";
+import { getAdminReports, getAdminSummary, normalizeReport, timeAgo } from "../services/api";
 
-// ====== DATA CONTOH (ganti dengan data dari API nanti) ======
-const stats = [
-  { label: "Total laporan", value: "1.284", note: "+12%", good: true, icon: "doc" },
-  { label: "Dalam proses", value: "186", note: "14,5%", good: false, icon: "clock" },
-  { label: "Selesai bulan ini", value: "742", note: "+8,4%", good: true, icon: "check" },
-  { label: "Rata-rata respons", value: "2,4 jam", note: "-18 mnt", good: true, icon: "bars" },
-];
+const fmt = (n) => Number(n || 0).toLocaleString("id-ID");
 
-const days = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
-const masuk = [12, 44, 26, 72, 50, 90, 104];
-const selesai = [5, 14, 12, 20, 18, 30, 47];
-
-const regions = [
-  { count: 38, top: "42%", left: "36%", size: 50 },
-  { count: 24, top: "20%", left: "72%", size: 44 },
-  { count: 17, top: "66%", left: "57%", size: 40 },
-];
-
-const reports = [
-  { id: "CC-2841", title: "Lampu jalan padam", cat: "Lampu jalan", area: "Sukajadi", status: "Diproses", time: "12 menit lalu" },
-  { id: "CC-2837", title: "Sampah belum diangkut", cat: "Sampah", area: "Cicendo", status: "Diverifikasi", time: "43 menit lalu" },
-  { id: "CC-2829", title: "Jalan berlubang", cat: "Jalan rusak", area: "Coblong", status: "Selesai", time: "2 jam lalu" },
-];
-
-const statusClass = {
-  Diproses: "badge badge-orange",
-  Diverifikasi: "badge badge-blue",
-  Selesai: "badge badge-green",
-};
-
-// ====== IKON SEDERHANA ======
-function Icon({ name }) {
-  const common = {
-    width: 18,
-    height: 18,
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.8,
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-  };
-  if (name === "doc")
-    return (
-      <svg {...common}>
-        <rect x="5" y="3" width="14" height="18" rx="2" />
-        <path d="M9 8h6M9 12h6M9 16h4" />
-      </svg>
-    );
-  if (name === "clock")
-    return (
-      <svg {...common}>
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 7v5l3 2" />
-      </svg>
-    );
-  if (name === "check")
-    return (
-      <svg {...common}>
-        <path d="M5 12l5 5L20 7" />
-      </svg>
-    );
-  if (name === "bars")
-    return (
-      <svg {...common}>
-        <path d="M5 20V10M12 20V4M19 20v-7" />
-      </svg>
-    );
-  if (name === "bell")
-    return (
-      <svg {...common}>
-        <path d="M6 9a6 6 0 0112 0c0 5 2 6 2 6H4s2-1 2-6" />
-        <path d="M10 19a2 2 0 004 0" />
-      </svg>
-    );
-  if (name === "arrow")
-    return (
-      <svg {...common} width={16} height={16}>
-        <path d="M5 12h14M13 6l6 6-6 6" />
-      </svg>
-    );
-  return (
-    <svg {...common} width={16} height={16}>
-      <path d="M9 6l6 6-6 6" />
-    </svg>
-  );
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 11) return "Selamat pagi";
+  if (h < 15) return "Selamat siang";
+  if (h < 18) return "Selamat sore";
+  return "Selamat malam";
 }
 
-// ====== GRAFIK TREN (SVG) ======
-const W = 600;
-const H = 230;
+function duration(min) {
+  if (min === null || min === undefined) return "-";
+  if (min < 60) return `${min} menit`;
+  if (min < 1440) return `${(min / 60).toFixed(1).replace(".", ",")} jam`;
+  return `${(min / 1440).toFixed(1).replace(".", ",")} hari`;
+}
+
+/* ===== Grafik ===== */
+const W = 600, H = 230;
 const PAD = { left: 36, right: 10, top: 10, bottom: 30 };
-const MAX_Y = 120;
-
-function toPoints(values) {
-  const stepX = (W - PAD.left - PAD.right) / (values.length - 1);
-  return values.map((v, i) => [
-    PAD.left + i * stepX,
-    PAD.top + (1 - v / MAX_Y) * (H - PAD.top - PAD.bottom),
-  ]);
-}
 
 function smoothPath(points) {
   let d = `M ${points[0][0]} ${points[0][1]}`;
@@ -110,66 +31,62 @@ function smoothPath(points) {
     const p1 = points[i];
     const p2 = points[i + 1];
     const p3 = points[i + 2] || p2;
-    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
-    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
-    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
-    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
-    d += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2[0]} ${p2[1]}`;
+    d += ` C ${p1[0] + (p2[0] - p0[0]) / 6} ${p1[1] + (p2[1] - p0[1]) / 6}, ${p2[0] - (p3[0] - p1[0]) / 6} ${p2[1] - (p3[1] - p1[1]) / 6}, ${p2[0]} ${p2[1]}`;
   }
   return d;
 }
 
-function TrendChart() {
-  const pMasuk = toPoints(masuk);
-  const pSelesai = toPoints(selesai);
-  const linePath = smoothPath(pMasuk);
-  const baseY = H - PAD.bottom;
-  const areaPath = `${linePath} L ${pMasuk[pMasuk.length - 1][0]} ${baseY} L ${pMasuk[0][0]} ${baseY} Z`;
+function TrendChart({ labels, masuk, selesai }) {
+  const maxVal = Math.max(...masuk, ...selesai, 1);
+  const MAX_Y = Math.max(4, Math.ceil(maxVal / 4) * 4);
+  const innerH = H - PAD.top - PAD.bottom;
+  const stepX = (W - PAD.left - PAD.right) / (labels.length - 1);
+  const pts = (v) => v.map((x, i) => [PAD.left + i * stepX, PAD.top + (1 - x / MAX_Y) * innerH]);
+
+  const pm = pts(masuk);
+  const ps = pts(selesai);
+  const line = smoothPath(pm);
+  const base = H - PAD.bottom;
+  const area = `${line} L ${pm[pm.length - 1][0]} ${base} L ${pm[0][0]} ${base} Z`;
+  const step = labels.length > 10 ? 5 : 1;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="chart-svg" role="img" aria-label="Grafik tren laporan">
+    <svg viewBox={`0 0 ${W} ${H}`} className="a-chart" role="img" aria-label="Grafik tren laporan">
       <defs>
-        <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#355c7d" stopOpacity="0.18" />
-          <stop offset="100%" stopColor="#355c7d" stopOpacity="0" />
+        <linearGradient id="aFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#0f766e" stopOpacity="0.22" />
+          <stop offset="100%" stopColor="#0f766e" stopOpacity="0" />
         </linearGradient>
       </defs>
-
-      {[0, 40, 80, 120].map((v) => {
-        const y = PAD.top + (1 - v / MAX_Y) * (H - PAD.top - PAD.bottom);
+      {[0, 1, 2, 3, 4].map((i) => {
+        const v = (MAX_Y / 4) * i;
+        const y = PAD.top + (1 - v / MAX_Y) * innerH;
         return (
-          <g key={v}>
-            <line x1={PAD.left} x2={W - PAD.right} y1={y} y2={y} stroke="#eef1f4" />
-            <text x={PAD.left - 8} y={y + 4} textAnchor="end" fontSize="10" fill="#9aa5b1">
-              {v}
-            </text>
+          <g key={i}>
+            <line x1={PAD.left} x2={W - PAD.right} y1={y} y2={y} stroke="#e8f0f1" />
+            <text x={PAD.left - 8} y={y + 4} textAnchor="end" fontSize="10" fill="#8a99a1">{v}</text>
           </g>
         );
       })}
-
-      <path d={areaPath} fill="url(#areaFill)" />
-      <path d={linePath} fill="none" stroke="#355c7d" strokeWidth="2.5" />
-      <path
-        d={smoothPath(pSelesai)}
-        fill="none"
-        stroke="#6fb59a"
-        strokeWidth="2.5"
-        strokeDasharray="2 5"
-        strokeLinecap="round"
-      />
-
-      {days.map((d, i) => (
-        <text key={d} x={pMasuk[i][0]} y={H - 8} textAnchor="middle" fontSize="10" fill="#9aa5b1">
-          {d}
-        </text>
-      ))}
+      <path d={area} fill="url(#aFill)" />
+      <path d={line} fill="none" stroke="#0f766e" strokeWidth="2.6" />
+      <path d={smoothPath(ps)} fill="none" stroke="#f59e0b" strokeWidth="2.6" strokeDasharray="2 5" strokeLinecap="round" />
+      {labels.map((l, i) =>
+        i % step === 0 ? (
+          <text key={i} x={pm[i][0]} y={H - 8} textAnchor="middle" fontSize="10" fill="#8a99a1">{l}</text>
+        ) : null
+      )}
     </svg>
   );
 }
 
-// ====== HALAMAN UTAMA ======
+/* ===== Halaman ===== */
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [range, setRange] = useState(7);
+  const [data, setData] = useState(null);
+  const [pending, setPending] = useState(0);
+  const [error, setError] = useState("");
 
   let user = null;
   try {
@@ -178,177 +95,159 @@ export default function Dashboard() {
     user = null;
   }
 
-  const initials = (user?.name || "Admin")
-    .split(" ")
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-
-  function handleLogout() {
-    localStorage.removeItem("token");
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("user");
-    navigate("/login", { replace: true });
+  function load() {
+    setError("");
+    Promise.all([getAdminSummary(range), getAdminReports({ status: "Menunggu" })])
+      .then(([summary, waiting]) => {
+        setData(summary);
+        setPending(waiting.length);
+      })
+      .catch((e) => setError(e.message || "Gagal memuat data."));
   }
 
+  useEffect(load, [range]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (error) {
+    return (
+      <AdminLayout>
+        <div className="a-panel a-empty">
+          <div className="a-empty-ico">⚠️</div>
+          <p>{error}</p>
+          <button className="a-btn" onClick={load}>Coba lagi</button>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (!data) {
+    return (
+      <AdminLayout>
+        <div className="a-panel a-empty">Memuat data…</div>
+      </AdminLayout>
+    );
+  }
+
+  const s = data.stats;
+  const latest = data.latest.map(normalizeReport);
+  const maxRegion = Math.max(1, ...data.regions.map((r) => r.count));
+  const ch = s.selesai_change;
+
+  const cards = [
+    { label: "Total laporan", value: fmt(s.total), note: `+${s.new_week} minggu ini`, icon: "list", tone: "s1", to: "/dashboard/laporan" },
+    { label: "Perlu ditinjau", value: fmt(pending), note: "Menunggu verifikasi", icon: "bell", tone: "s2", to: "/dashboard/laporan?status=Menunggu" },
+    { label: "Sedang ditangani", value: fmt(s.proses), note: `${String(s.proses_pct).replace(".", ",")}% dari total`, icon: "wrench", tone: "s3", to: "/dashboard/laporan?status=Diproses" },
+    { label: "Selesai bulan ini", value: fmt(s.selesai_bulan), note: ch === null ? "bulan ini" : `${ch > 0 ? "+" : ""}${ch}% dari bulan lalu`, icon: "check", tone: "s4", to: "/dashboard/laporan?status=Selesai" },
+  ];
+
   return (
-    <div className="adm-layout">
-      <aside className="adm-sidebar">
-        <div className="adm-brand">
-          <div className="adm-logo">CC</div>
-          <span>CivicCare</span>
-        </div>
-        <nav>
-          <a className="active">Ringkasan</a>
-          <a>Laporan</a>
-          <a>Wilayah</a>
-          <a>Pengguna</a>
-        </nav>
-        <button className="adm-logout" onClick={handleLogout}>
-          Keluar
-        </button>
-      </aside>
-
-      <div className="adm-main">
-        <header className="adm-header">
-          <div>
-            <small>Pusat kendali layanan kota</small>
-            <h1>Ringkasan</h1>
-          </div>
-          <div className="adm-header-right">
-            <button className="icon-btn" aria-label="Notifikasi">
-              <Icon name="bell" />
-              <span className="dot" />
+    <AdminLayout>
+      <section className="a-hero">
+        <i className="a-orb o1" />
+        <i className="a-orb o2" />
+        <div className="a-hero-in">
+          <span className="a-pill">{greeting()} 👋</span>
+          <h1>Halo, {user?.name || "Admin"}!</h1>
+          <p>
+            {pending > 0
+              ? `Ada ${pending} laporan baru yang menunggu untuk ditinjau dan diteruskan ke dinas terkait.`
+              : "Semua laporan sudah ditinjau. Tidak ada laporan yang menunggu."}
+          </p>
+          <div className="a-hero-actions">
+            <button className="a-btn-white" onClick={() => navigate("/dashboard/laporan?status=Menunggu")}>
+              Tinjau laporan
             </button>
-            <div className="avatar" title={user?.name || "Admin"}>
-              {initials}
+            <button className="a-btn-line" onClick={() => navigate("/dashboard/laporan")}>
+              Semua laporan
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section className="a-stats">
+        {cards.map((c) => (
+          <button key={c.label} className="a-stat" onClick={() => navigate(c.to)}>
+            <span className={`a-stat-ico ${c.tone}`}><Icon name={c.icon} /></span>
+            <b>{c.value}</b>
+            <span className="a-stat-label">{c.label}</span>
+            <small>{c.note}</small>
+          </button>
+        ))}
+      </section>
+
+      <div className="a-two">
+        <section className="a-panel a-pad">
+          <div className="a-sec-row tight">
+            <div>
+              <h2>Tren laporan</h2>
+              <p className="a-muted">Jumlah masuk dan selesai, {range} hari terakhir</p>
+            </div>
+            <div className="a-seg">
+              <button className={range === 7 ? "on" : ""} onClick={() => setRange(7)}>7 hari</button>
+              <button className={range === 30 ? "on" : ""} onClick={() => setRange(30)}>30 hari</button>
             </div>
           </div>
-        </header>
 
-        <div className="adm-content">
-          {/* Kartu statistik */}
-          <section className="stat-grid">
-            {stats.map((s) => (
-              <div className="card stat-card" key={s.label}>
-                <div className="stat-icon">
-                  <Icon name={s.icon} />
-                </div>
-                <p className="stat-label">{s.label}</p>
-                <div className="stat-row">
-                  <strong>{s.value}</strong>
-                  <span className={s.good ? "note good" : "note"}>{s.note}</span>
-                </div>
-              </div>
-            ))}
-          </section>
+          <TrendChart labels={data.trend.labels} masuk={data.trend.masuk} selesai={data.trend.selesai} />
 
-          {/* Grafik + peta */}
-          <section className="mid-grid">
-            <div className="card chart-card">
-              <div className="card-head">
-                <div>
-                  <h3>Tren laporan</h3>
-                  <p>Jumlah masuk dan selesai, 7 hari terakhir</p>
-                </div>
-                <button className="link-btn">
-                  Minggu ini <Icon name="chev" />
+          <div className="a-legend">
+            <span><i style={{ background: "#0f766e" }} /> Laporan masuk</span>
+            <span><i style={{ background: "#f59e0b" }} /> Laporan selesai</span>
+          </div>
+          <div className="a-avg">
+            ⏱️ Rata-rata waktu penyelesaian: <b>{duration(s.avg_minutes)}</b>
+            <small> ({s.resolved_count} laporan selesai)</small>
+          </div>
+        </section>
+
+        <section className="a-panel a-pad">
+          <div className="a-sec-row tight">
+            <div>
+              <h2>Sebaran wilayah</h2>
+              <p className="a-muted">Wilayah dengan laporan terbanyak</p>
+            </div>
+            <button className="a-link" onClick={() => navigate("/dashboard/wilayah")}>Detail →</button>
+          </div>
+
+          {data.regions.length === 0 ? (
+            <div className="a-empty small">Belum ada laporan.</div>
+          ) : (
+            <div className="a-bars">
+              {data.regions.map((r) => (
+                <button key={r.area} className="a-bar"
+                  onClick={() => navigate(`/dashboard/laporan?area=${encodeURIComponent(r.area)}`)}>
+                  <div><b>{r.area}</b><span>{r.count} laporan</span></div>
+                  <em><i style={{ width: `${(r.count / maxRegion) * 100}%` }} /></em>
                 </button>
-              </div>
-
-              <TrendChart />
-
-              <div className="legend">
-                <span>
-                  <i style={{ background: "#355c7d" }} /> Laporan masuk
-                </span>
-                <span>
-                  <i style={{ background: "#6fb59a" }} /> Laporan selesai
-                </span>
-              </div>
+              ))}
             </div>
-
-            <div className="card map-card">
-              <div className="card-head pad">
-                <div>
-                  <h3>Sebaran laporan</h3>
-                  <p>Wilayah dengan laporan aktif</p>
-                </div>
-              </div>
-
-              <div className="map-area">
-                <div className="road r1" />
-                <div className="road r2" />
-                <div className="road r3" />
-                {regions.map((r) => (
-                  <div
-                    key={r.count}
-                    className="bubble"
-                    style={{ top: r.top, left: r.left, width: r.size, height: r.size }}
-                  >
-                    {r.count}
-                  </div>
-                ))}
-              </div>
-
-              <div className="map-foot">
-                <span>Sukajadi memiliki laporan terbanyak</span>
-                <button className="link-btn">Lihat detail</button>
-              </div>
-            </div>
-          </section>
-
-          {/* Tabel pengaduan */}
-          <section className="card table-card">
-            <div className="card-head">
-              <div>
-                <h3>Pengaduan terbaru</h3>
-                <p>Perlu ditinjau dan diteruskan ke dinas terkait</p>
-              </div>
-              <button className="link-btn">
-                Lihat semua <Icon name="arrow" />
-              </button>
-            </div>
-
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID Laporan</th>
-                    <th>Pengaduan</th>
-                    <th>Wilayah</th>
-                    <th>Status</th>
-                    <th>Masuk</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {reports.map((r) => (
-                    <tr key={r.id}>
-                      <td className="rid">{r.id}</td>
-                      <td>
-                        <div className="rtitle">{r.title}</div>
-                        <div className="rcat">{r.cat}</div>
-                      </td>
-                      <td>{r.area}</td>
-                      <td>
-                        <span className={statusClass[r.status]}>{r.status}</span>
-                      </td>
-                      <td>{r.time}</td>
-                      <td>
-                        <button className="icon-btn sm" aria-label="Detail">
-                          <Icon name="chev" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </div>
+          )}
+        </section>
       </div>
-    </div>
+
+      <div className="a-sec-row">
+        <h2>Pengaduan terbaru</h2>
+        <button className="a-link" onClick={() => navigate("/dashboard/laporan")}>Lihat semua →</button>
+      </div>
+
+      {latest.length === 0 ? (
+        <div className="a-panel a-empty">
+          <div className="a-empty-ico">📭</div>
+          <p>Belum ada pengaduan masuk dari warga.</p>
+        </div>
+      ) : (
+        <div className="a-list">
+          {latest.map((r) => (
+            <button key={r.dbId} className="a-row" onClick={() => navigate(`/dashboard/laporan/${r.dbId}`)}>
+              <span className="a-row-ico">{r.category?.[0]?.toUpperCase()}</span>
+              <div className="a-row-info">
+                <b>{r.title}</b>
+                <small>{r.id} • {r.reporter} • {r.area} • {timeAgo(r.createdAt)}</small>
+              </div>
+              <span className={STATUS_CLASS[r.status]}>{r.status}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </AdminLayout>
   );
 }
