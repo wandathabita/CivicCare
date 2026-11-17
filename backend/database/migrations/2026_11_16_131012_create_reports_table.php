@@ -1,3 +1,4 @@
+
 <?php
 
 use Illuminate\Database\Migrations\Migration;
@@ -13,6 +14,11 @@ return new class extends Migration
     {
         Schema::create('reports', function (Blueprint $table) {
             $table->id();
+
+            $table->string('area');
+            $table->string('status')->default('pending');
+            $table->timestamp('resolved_at')->nullable();
+
             $table->timestamps();
         });
     }
