@@ -51,7 +51,7 @@ function App() {
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
 
         <Route
-          path="/dashboard"
+          path="/dashboard/*"
           element={
             <ProtectedRoute allow="admin">
               <Dashboard />
@@ -59,7 +59,7 @@ function App() {
           }
         />
         <Route
-          path="/masyarakat"
+          path="/masyarakat/*"
           element={
             <ProtectedRoute allow="masyarakat">
               <UserDashboard />
