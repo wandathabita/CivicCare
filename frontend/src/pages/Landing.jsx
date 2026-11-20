@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { getPublicStats } from "../services/api";
 import "./Landing.css";
 
 const CATEGORIES = [
@@ -24,6 +26,14 @@ const FEATURES = [
 ];
 
 export default function Landing() {
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    getPublicStats().then(setStats).catch(() => {});
+  }, []);
+
+  const fmt = (n) => Number(n || 0).toLocaleString("id-ID");
+
   return (
     <div className="lp">
       {/* ===== Navbar ===== */}
@@ -68,9 +78,9 @@ export default function Landing() {
           </div>
 
           <div className="lp-stats">
-            <div><b>6</b><span>Kategori laporan</span></div>
-            <div><b>4</b><span>Tahap pemantauan</span></div>
-            <div><b>24/7</b><span>Bisa lapor kapan saja</span></div>
+            <div><b>{stats ? fmt(stats.total) : "—"}</b><span>Laporan masuk</span></div>
+            <div><b>{stats ? fmt(stats.selesai) : "—"}</b><span>Laporan selesai</span></div>
+            <div><b>{stats ? fmt(stats.wilayah) : "—"}</b><span>Wilayah terjangkau</span></div>
           </div>
         </div>
 

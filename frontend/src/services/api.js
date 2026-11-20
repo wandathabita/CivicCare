@@ -62,7 +62,7 @@ async function request(path, { method = "GET", body } = {}) {
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  let data = null;
+  let data;
   try {
     data = await response.json();
   } catch {
@@ -241,4 +241,12 @@ export async function getAdminAreas() {
 
 export async function getAdminUsers() {
   return (await request("/admin/users")).users;
+}
+
+export async function getPublicStats() {
+  const response = await fetch(`${API_URL}/public/stats`, {
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) throw new Error("Gagal memuat statistik.");
+  return response.json();
 }
