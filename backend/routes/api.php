@@ -1,4 +1,3 @@
-
 <?php
 
 use Illuminate\Support\Facades\Route;
@@ -16,8 +15,8 @@ use App\Http\Middleware\EnsureAdmin;
 
 Route::prefix('auth')->group(function () {
 
-    Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 
     Route::middleware('auth:sanctum')->group(function () {
 
