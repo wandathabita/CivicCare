@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\PublicController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
@@ -86,3 +87,6 @@ Route::middleware(['auth:sanctum', EnsureAdmin::class])->group(function () {
     Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
 
 });
+
+// Statistik publik untuk landing page
+Route::get('/public/stats', [PublicController::class, 'stats'])->middleware('throttle:60,1');
