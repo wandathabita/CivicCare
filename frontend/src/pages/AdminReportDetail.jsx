@@ -97,6 +97,21 @@ export default function AdminReportDetail() {
             <dt>Deskripsi</dt><dd>{report.description}</dd>
           </dl>
 
+          {isSocial && (
+            <div style={{ marginTop: 18 }}>
+              <b>Relawan yang siap membantu ({report.volunteers.length})</b>
+              {report.volunteers.length === 0 ? (
+                <small className="a-muted" style={{ marginTop: 6 }}>Belum ada relawan yang mendaftar.</small>
+              ) : (
+                <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 14, lineHeight: 1.7 }}>
+                  {report.volunteers.map((v) => (
+                    <li key={v.id}>{v.name} <span className="a-muted">({v.email})</span></li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          
           {report.photo && <img className="a-photo" src={report.photo} alt="Foto laporan" />}
         </section>
 

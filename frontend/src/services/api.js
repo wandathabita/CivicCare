@@ -191,6 +191,11 @@ export function normalizeReport(r) {
     status: r.status,
     note: r.admin_note || "",
     target: r.target_amount ?? null,
+    volunteers: (r.volunteers || []).map((v) => ({
+      id: v.id,
+      name: v.user?.name || "",
+      email: v.user?.email || "",
+    })),
     createdAt: r.created_at,
     resolvedAt: r.resolved_at,
     reporter: r.user?.name || "",
@@ -262,4 +267,8 @@ export function getCase(id) {
 
 export function donateToCase(id, amount, message) {
   return request(`/cases/${id}/donate`, { method: "POST", body: { amount, message } });
+}
+
+export function toggleVolunteer(id) {
+  return request(`/cases/${id}/volunteer`, { method: "POST" });
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { donateToCase, getCase, getCases, timeAgo } from "../services/api";
+import { donateToCase, getCase, getCases, timeAgo, toggleVolunteer } from "../services/api";
 import "./Cases.css";
 
 const rp = (n) =>
@@ -32,6 +32,7 @@ function CaseModal({ id, onClose, onChanged }) {
   const [amount, setAmount] = useState(25000);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [joining, setJoining] = useState(false);
   const [ok, setOk] = useState("");
   const [error, setError] = useState("");
 
@@ -56,6 +57,21 @@ function CaseModal({ id, onClose, onChanged }) {
       setError(err.message || "Gagal mengirim donasi.");
     } finally {
       setSending(false);
+    }
+  }
+
+  async function toggleJoin() {
+    setJoining(true);
+    setOk("");
+    setError("");
+    try {
+      const data = await toggleVolunteer(id);
+      setDetail(data);
+      onChanged(data.case);
+    } catch (err) {
+      setError(err.message || "Gagal memperbarui status relawan.");
+    } finally {
+      setJoining(false);
     }
   }
 
@@ -113,6 +129,28 @@ function CaseModal({ id, onClose, onChanged }) {
                 </button>
               </form>
             )}
+
+            <div className="cs-ledger">
+              <h3>Relawan ({c.volunteers})</h3>
+              {c.status !== "Selesai" || detail.joined ? (
+                <button
+                  type="button"
+                  className={detail.joined ? "cs-vol-btn on" : "cs-vol-btn"}
+                  onClick={toggleJoin}
+                  disabled={joining}
+                  style={{ marginBottom: 10 }}
+                >
+                  {joining ? "Memproses..." : detail.joined ? "✓ Kamu terdaftar sebagai relawan (klik untuk batal)" : "🙋 Saya siap membantu"}
+                </button>
+              ) : null}
+              {detail.volunteers.length === 0 ? (
+                <small style={{ color: "#6b7c86" }}>Belum ada relawan. Daftar jika kamu bisa membantu langsung di lokasi.</small>
+              ) : (
+                <div className="cs-chips">
+                  {detail.volunteers.map((v) => <span key={v.id}>{v.name}</span>)}
+                </div>
+              )}
+            </div>
 
             <div className="cs-ledger">
               <h3>Daftar donatur ({c.donors})</h3>
@@ -200,7 +238,7 @@ export default function Cases() {
                     <div className="cs-bar"><i style={{ width: `${pct(c)}%` }} /></div>
                     <div className="cs-money">
                       <span><b>{rp(c.collected)}</b> dari {rp(c.target)}</span>
-                      <span>{c.donors} donatur</span>
+                      <span>{c.donors} donatur • {c.volunteers} relawan</span>
                     </div>
                   </button>
                 ))}
