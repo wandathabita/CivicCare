@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import AdminLayout, { STATUS_CLASS } from "./AdminLayout.jsx";
-import { STATUS_LIST, getAdminReport, timeAgo, updateReportStatus } from "../services/api.js";
+import { STATUS_LIST, getAdminReport, timeAgo, updateReportStatus } from "../services/api";
 
 export default function AdminReportDetail() {
   const { id } = useParams();
@@ -10,6 +10,7 @@ export default function AdminReportDetail() {
   const [report, setReport] = useState(null);
   const [status, setStatus] = useState("Menunggu");
   const [note, setNote] = useState("");
+  const [target, setTarget] = useState("");
   const [saving, setSaving] = useState(false);
   const [ok, setOk] = useState("");
   const [error, setError] = useState("");
@@ -20,17 +21,21 @@ export default function AdminReportDetail() {
         setReport(r);
         setStatus(r.status);
         setNote(r.note || "");
+        setTarget(r.target ? String(r.target) : "");
       })
       .catch((e) => setError(e.message || "Laporan tidak ditemukan."));
   }, [id]);
+
+  const isSocial = report?.category === "Bantuan sosial";
 
   async function save() {
     setSaving(true);
     setOk("");
     setError("");
     try {
-      const updated = await updateReportStatus(id, status, note);
+      const updated = await updateReportStatus(id, status, note, isSocial ? Number(target) || 0 : undefined);
       setReport(updated);
+      setTarget(updated.target ? String(updated.target) : "");
       setOk("Status laporan berhasil diperbarui.");
     } catch (e) {
       setError(e.message || "Gagal menyimpan.");
@@ -59,7 +64,10 @@ export default function AdminReportDetail() {
   }
 
   const step = STATUS_LIST.indexOf(report.status);
-  const changed = status !== report.status || note !== (report.note || "");
+  const changed =
+    status !== report.status ||
+    note !== (report.note || "") ||
+    (isSocial && (Number(target) || 0) !== (report.target || 0));
 
   return (
     <AdminLayout>
@@ -102,6 +110,25 @@ export default function AdminReportDetail() {
               </button>
             ))}
           </div>
+
+          {isSocial && (
+            <>
+              <label htmlFor="target">Target dana donasi (Rp)</label>
+              <input
+                id="target"
+                type="number"
+                min={0}
+                step={50000}
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+                placeholder="Contoh: 1500000"
+                style={{ width: "100%", padding: "12px 14px", border: "1.5px solid #e3ecee", borderRadius: 13, fontSize: 14.5, marginBottom: 10 }}
+              />
+              <small className="a-muted" style={{ marginBottom: 10 }}>
+                Isi target dan set status Diverifikasi/Diproses agar kasus muncul di halaman Bantu Sesama.
+              </small>
+            </>
+          )}
 
           <label htmlFor="note">Catatan untuk warga</label>
           <textarea

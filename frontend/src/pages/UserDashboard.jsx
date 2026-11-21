@@ -150,6 +150,7 @@ export default function UserDashboard() {
             loading={loading}
             go={go}
             onOpen={setSelected}
+            onHelp={() => navigate("/bantuan")}
             onPick={(c) => { setPreset(c); setView("new"); window.scrollTo({ top: 0 }); }}
           />
         )}
@@ -174,7 +175,7 @@ export default function UserDashboard() {
 }
 
 /* ================= BERANDA ================= */
-function Home({ name, stats, reports, loading, go, onOpen, onPick }) {
+function Home({ name, stats, reports, loading, go, onOpen, onHelp, onPick }) {
   const active = reports.find((r) => r.status !== "Selesai");
 
   return (
@@ -189,6 +190,7 @@ function Home({ name, stats, reports, loading, go, onOpen, onPick }) {
           <div className="hero-actions">
             <button className="btn-white" onClick={() => go("new")}>＋ Buat laporan baru</button>
             <button className="btn-line" onClick={() => go("history")}>Lihat riwayat</button>
+            <button className="btn-line" onClick={onHelp}>🤝 Bantu sesama</button>
           </div>
         </div>
       </section>

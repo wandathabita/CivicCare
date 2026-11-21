@@ -9,6 +9,7 @@ import AdminReportDetail from "./pages/AdminReportDetail.jsx";
 import AdminAreas from "./pages/AdminAreas.jsx";
 import AdminUsers from "./pages/AdminUsers.jsx";
 import "./App.css";
+import Cases from "./pages/Cases.jsx";
 
 function getUser() {
   try {
@@ -41,6 +42,10 @@ function ProtectedRoute({ children, allow }) {
   return allowed ? children : <Navigate to={homeFor(role)} replace />;
 }
 
+function AuthRoute({ children }) {
+  return isLoggedIn() ? children : <Navigate to="/login" replace />;
+}
+
 function PublicRoute({ children }) {
   if (!isLoggedIn()) return children;
   return <Navigate to={homeFor(getUser()?.role)} replace />;
@@ -59,6 +64,7 @@ function App() {
         <Route path="/dashboard/laporan/:id" element={<ProtectedRoute allow="admin"><AdminReportDetail /></ProtectedRoute>} />
         <Route path="/dashboard/wilayah" element={<ProtectedRoute allow="admin"><AdminAreas /></ProtectedRoute>} />
         <Route path="/dashboard/pengguna" element={<ProtectedRoute allow="admin"><AdminUsers /></ProtectedRoute>} />
+        <Route path="/bantuan" element={<AuthRoute><Cases /></AuthRoute>} />
         <Route
           path="/masyarakat/*"
           element={

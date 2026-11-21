@@ -190,6 +190,7 @@ export function normalizeReport(r) {
     photo: r.photo || "",
     status: r.status,
     note: r.admin_note || "",
+    target: r.target_amount ?? null,
     createdAt: r.created_at,
     resolvedAt: r.resolved_at,
     reporter: r.user?.name || "",
@@ -227,11 +228,11 @@ export async function getAdminReport(id) {
   return normalizeReport(data.report);
 }
 
-export async function updateReportStatus(id, status, note) {
-  const data = await request(`/admin/reports/${id}/status`, {
-    method: "PATCH",
-    body: { status, admin_note: note },
-  });
+export async function updateReportStatus(id, status, note, targetAmount) {
+  const body = { status, admin_note: note };
+  if (targetAmount !== undefined) body.target_amount = targetAmount;
+
+  const data = await request(`/admin/reports/${id}/status`, { method: "PATCH", body });
   return normalizeReport(data.report);
 }
 
@@ -249,4 +250,16 @@ export async function getPublicStats() {
   });
   if (!response.ok) throw new Error("Gagal memuat statistik.");
   return response.json();
+}
+
+export async function getCases() {
+  return (await request("/cases")).cases;
+}
+
+export function getCase(id) {
+  return request(`/cases/${id}`);
+}
+
+export function donateToCase(id, amount, message) {
+  return request(`/cases/${id}/donate`, { method: "POST", body: { amount, message } });
 }
