@@ -4,6 +4,10 @@ import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import UserDashboard from "./pages/UserDashboard.jsx";
+import AdminReports from "./pages/AdminReports.jsx";
+import AdminReportDetail from "./pages/AdminReportDetail.jsx";
+import AdminAreas from "./pages/AdminAreas.jsx";
+import AdminUsers from "./pages/AdminUsers.jsx";
 import "./App.css";
 
 function getUser() {
@@ -50,14 +54,11 @@ function App() {
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
 
-        <Route
-          path="/dashboard/*"
-          element={
-            <ProtectedRoute allow="admin">
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/dashboard" element={<ProtectedRoute allow="admin"><Dashboard /></ProtectedRoute>} />
+        <Route path="/dashboard/laporan" element={<ProtectedRoute allow="admin"><AdminReports /></ProtectedRoute>} />
+        <Route path="/dashboard/laporan/:id" element={<ProtectedRoute allow="admin"><AdminReportDetail /></ProtectedRoute>} />
+        <Route path="/dashboard/wilayah" element={<ProtectedRoute allow="admin"><AdminAreas /></ProtectedRoute>} />
+        <Route path="/dashboard/pengguna" element={<ProtectedRoute allow="admin"><AdminUsers /></ProtectedRoute>} />
         <Route
           path="/masyarakat/*"
           element={
