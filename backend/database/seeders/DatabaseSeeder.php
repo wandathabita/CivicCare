@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\Report;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use App\Models\Donation;
 
 class DatabaseSeeder extends Seeder
 {
@@ -65,6 +66,20 @@ class DatabaseSeeder extends Seeder
             ])->save();
 
             $r->update(['code' => 'CC-' . str_pad((string) $r->id, 5, '0', STR_PAD_LEFT)]);
+            
+        // Kasus bantuan sosial: beri target dana dan beberapa donasi contoh
+        if ($cat === 'Bantuan sosial') {
+            $r->update(['target_amount' => $i === 4 ? 3000000 : 1500000]);
+
+            foreach ([[0, 50000, 'Semoga lekas membaik'], [1, 100000, null], [2, 25000, 'Semangat!']] as [$w, $amt, $msg]) {
+                Donation::create([
+                    'report_id' => $r->id,
+                    'user_id' => $warga[$w]->id,
+                    'amount' => $amt,
+                    'message' => $msg,
+                    ]);
+                }
+            }
         }
     }
 }

@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Middleware\EnsureAdmin;
+use App\Http\Controllers\Api\CaseController;
 
 /*
 |--------------------------------------------------------------------------
@@ -41,6 +42,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Masyarakat
     Route::post('/reports', [ReportController::class, 'store']);
     Route::get('/reports/mine', [ReportController::class, 'mine']);
+    // Bantuan sosial & donasi (semua pengguna yang login)
+    Route::get('/cases', [CaseController::class, 'index']);
+    Route::get('/cases/{id}', [CaseController::class, 'show']);
+    Route::post('/cases/{id}/donate', [CaseController::class, 'donate'])->middleware('throttle:20,1');
 
     /*
     |--------------------------------------------------------------------------

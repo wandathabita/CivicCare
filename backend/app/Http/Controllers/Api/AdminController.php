@@ -96,15 +96,21 @@ class AdminController extends Controller
 
     public function updateStatus(Request $request, $id)
     {
-        $data = $request->validate([
+                $data = $request->validate([
             'status' => ['required', 'in:' . implode(',', self::STATUSES)],
             'admin_note' => ['nullable', 'string', 'max:1000'],
+            'target_amount' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
         ]);
 
         $report = Report::findOrFail($id);
         $report->status = $data['status'];
         $report->admin_note = $data['admin_note'] ?? null;
 
+        // Target dana hanya dipakai untuk kategori "Bantuan sosial"
+        if ($report->category === 'Bantuan sosial' && array_key_exists('target_amount', $data)) {
+            $report->target_amount = $data['target_amount'] ?: null;
+        }
+        
         if ($data['status'] === 'Selesai') {
             $report->resolved_at = $report->resolved_at ?? now();
         } else {

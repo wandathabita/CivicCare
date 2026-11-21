@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Report extends Model
 {
@@ -26,6 +27,7 @@ class Report extends Model
         'photo',
         'status',
         'admin_note',
+        'target_amount',
         'resolved_at',
     ];
 
@@ -37,5 +39,11 @@ class Report extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    // Relasi laporan dengan donasi
+    public function donations(): HasMany
+    {
+        return $this->hasMany(Donation::class);
     }
 }
