@@ -7,6 +7,7 @@ use App\Models\Report;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use App\Models\Donation;
+use App\Models\Volunteer;
 
 class DatabaseSeeder extends Seeder
 {
@@ -78,6 +79,10 @@ class DatabaseSeeder extends Seeder
                     'amount' => $amt,
                     'message' => $msg,
                     ]);
+
+            foreach ([1, 2] as $w) {
+                    Volunteer::create(['report_id' => $r->id, 'user_id' => $warga[$w]->id]);
+                }
                 }
             }
         }

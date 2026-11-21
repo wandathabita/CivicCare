@@ -16,7 +16,7 @@ class CaseController extends Controller
             ->where('target_amount', '>', 0)
             ->whereIn('status', ['Diverifikasi', 'Diproses', 'Selesai'])
             ->withSum('donations', 'amount')
-            ->withCount('donations');
+            ->withCount(['donations', 'volunteers']);
     }
 
     private function format(Report $r): array
@@ -31,6 +31,7 @@ class CaseController extends Controller
             'target' => (int) $r->target_amount,
             'collected' => (int) ($r->donations_sum_amount ?? 0),
             'donors' => (int) ($r->donations_count ?? 0),
+            'volunteers' => (int) ($r->volunteers_count ?? 0),
             'created_at' => $r->created_at,
         ];
     }
@@ -42,7 +43,7 @@ class CaseController extends Controller
         ]);
     }
 
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $report = $this->cases()->findOrFail($id);
 
@@ -59,9 +60,22 @@ class CaseController extends Controller
                 'created_at' => $d->created_at,
             ]);
 
+        $volunteers = $report->volunteers()
+            ->with('user:id,name')
+            ->latest()
+            ->take(30)
+            ->get()
+            ->map(fn ($v) => [
+                'id' => $v->id,
+                'name' => $v->user?->name ?? 'Relawan',
+                'created_at' => $v->created_at,
+            ]);
+
         return response()->json([
             'case' => $this->format($report),
             'donations' => $donations,
+            'volunteers' => $volunteers,
+            'joined' => $report->volunteers()->where('user_id', $request->user()->id)->exists(),
         ]);
     }
 
@@ -88,9 +102,31 @@ class CaseController extends Controller
             'message' => $data['message'] ?? null,
         ]);
 
-        $response = $this->show($id);
+        $response = $this->show($request, $id);
         $response->setStatusCode(201);
 
         return $response;
+    }
+
+    // Daftar / batal jadi relawan (tombol yang sama: kalau sudah daftar, jadi batal)
+    public function volunteer(Request $request, $id)
+    {
+        $report = $this->cases()->findOrFail($id);
+        $existing = $report->volunteers()->where('user_id', $request->user()->id)->first();
+
+        if ($existing) {
+            $existing->delete();
+        } else {
+            if ($report->status === 'Selesai') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kasus ini sudah selesai ditangani.',
+                ], 422);
+            }
+
+            $report->volunteers()->create(['user_id' => $request->user()->id]);
+        }
+
+        return $this->show($request, $id);
     }
 }

@@ -90,7 +90,7 @@ class AdminController extends Controller
     public function show($id)
     {
         return response()->json([
-            'report' => Report::with('user:id,name,email')->findOrFail($id),
+        'report' => Report::with('user:id,name,email', 'volunteers.user:id,name,email')->findOrFail($id), 
         ]);
     }
 

@@ -46,4 +46,10 @@ class Report extends Model
     {
         return $this->hasMany(Donation::class);
     }
+        
+    // Relasi laporan dengan relawan
+    public function volunteers(): HasMany
+    {
+        return $this->hasMany(Volunteer::class);
+    }
 }

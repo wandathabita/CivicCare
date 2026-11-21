@@ -46,6 +46,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/cases', [CaseController::class, 'index']);
     Route::get('/cases/{id}', [CaseController::class, 'show']);
     Route::post('/cases/{id}/donate', [CaseController::class, 'donate'])->middleware('throttle:20,1');
+    Route::post('/cases/{id}/volunteer', [CaseController::class, 'volunteer'])->middleware('throttle:20,1');
 
     /*
     |--------------------------------------------------------------------------
