@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Donation;
 use App\Models\Report;
+use App\Models\Volunteer;
 
 class PublicController extends Controller
 {
@@ -15,6 +17,8 @@ class PublicController extends Controller
             'selesai' => Report::where('status', 'Selesai')->count(),
             'proses' => Report::whereIn('status', ['Diverifikasi', 'Diproses'])->count(),
             'wilayah' => Report::distinct()->count('area'),
+            'dana' => (int) Donation::sum('amount'),
+            'relawan' => Volunteer::distinct()->count('user_id'),
         ]);
     }
 }
